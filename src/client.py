@@ -1,80 +1,72 @@
 import socket
 
-OPERATION_HEADER = 2
-USER_NAME_LENGTH_HEADER = 2
-STATUS_CODE_HEADER = 3
-IP_HEADER = 2
 
+class Client:
+    def __init__(self, username, server, port):
+        self.OPERATION_HEADER = 2
+        self.USER_NAME_LENGTH_HEADER = 2
+        self.STATUS_CODE_HEADER = 3
+        self.IP_HEADER = 2
 
-PORT = 5050
-FORMAT = 'utf-8'
-SERVER = ""
-ADDR = (SERVER, PORT)
+        self.PORT = port
+        self.FORMAT = 'utf-8'
+        self.SERVER = server
+        self.ADDR = (self.SERVER, self.PORT)
 
-user_name = ""
+        self.user_name = username
 
-client = None
+        self.client = None
 
+    def connect(self):
+        self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.client.connect(self.ADDR)
 
-def connect():
-    global client
+    def disconnect(self):
+        self.client.close()
 
-    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect(ADDR)
+    def send_user_name(self, requested_user_name=""):
+        user_name_to_send = self.user_name
 
+        if requested_user_name != "":
+            user_name_to_send = requested_user_name
 
-def disconnect():
-    client.close()
+        self.client.send(str(len(user_name_to_send)).zfill(self.USER_NAME_LENGTH_HEADER).encode(self.FORMAT))
+        self.client.send(user_name_to_send.encode(self.FORMAT))
 
+    def send_operation(self, operation):
+        self.client.send(operation.encode(self.FORMAT))
 
-def send_user_name(requested_user_name=""):
-    user_name_to_send = user_name
+    def recv(self, length):
+        return self.client.recv(length).decode(self.FORMAT)
 
-    if requested_user_name != "":
-        user_name_to_send = requested_user_name
+    def send_online(self):
+        self.connect()
 
-    client.send(str(len(user_name_to_send)).zfill(USER_NAME_LENGTH_HEADER).encode(FORMAT))
-    client.send(user_name_to_send.encode(FORMAT))
+        self.send_operation("on")
+        self.send_user_name()
 
+        print(self.recv(self.STATUS_CODE_HEADER))
 
-def send_operation(operation):
-    client.send(operation.encode(FORMAT))
+        self.disconnect()
 
+    def send_alive(self):
+        self.connect()
 
-def recv(length):
-    return client.recv(length).decode(FORMAT)
+        self.send_operation("al")
+        self.send_user_name()
 
+        self.disconnect()
 
-def send_online():
-    connect()
+    def get_ip(self, requested_user_name):
+        self.connect()
 
-    send_operation("on")
-    send_user_name()
+        self.send_operation("ip")
+        self.send_user_name()
+        self.send_user_name(requested_user_name)
 
-    print(recv(STATUS_CODE_HEADER))
+        ip_length = self.recv(self.IP_HEADER)
+        ip = self.recv(int(ip_length))
 
-    disconnect()
+        self.disconnect()
 
-
-def send_alive():
-    connect()
-
-    send_operation("al")
-    send_user_name()
-
-    disconnect()
-
-
-def get_ip(requested_user_name):
-    connect()
-
-    send_operation("ip")
-    send_user_name()
-    send_user_name(requested_user_name)
-
-    ip_length = recv(IP_HEADER)
-    ip = recv(int(ip_length))
-
-    disconnect()
-
-    return ip
+        return ip
